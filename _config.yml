@@ -9,6 +9,7 @@ minimal_mistakes_skin    : "default" # "air", "aqua", "contrast", "dark", "dirt"
 
 # Site Settings
 locale                   : "en-US"
+logo                     : "/images/ERstamp.jpeg"
 title                    : "Elyse Renouf, MBA"
 title_separator          : "-"
 name                     : "Elyse Renouf, MBA"
