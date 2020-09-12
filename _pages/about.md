@@ -2,7 +2,7 @@
 title: "About"
 permalink: /about/
 header:
-  image: "/images/Elyse_Renouf_DataScience.jpg"
+  image: "/images/Elyse_Renouf_DataScience.JPG"
 ---
 
 Using business intelligence to solve challenges in operations has always been my bread and butter; now data science is my shiny new knife. 
