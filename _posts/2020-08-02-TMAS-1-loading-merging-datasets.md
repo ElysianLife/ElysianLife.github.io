@@ -1,0 +1,1008 @@
+---
+title: "Tell Me A Story"
+date: 2020-08-02
+tags: [BrainStation, capstone, NLP, data wrangling, data science, messy data]
+header:
+  image: "/images/TMAS.jpg"
+excerpt: "Tell Me A Story (TMAS) is a content-based young children's book recommender using NLP that is derived from a Kaggle dataset of Goodreads.com book reviews. It was created so parents could input one of their child's favourite books and TMAS can recommend other similar books to read based entirely on key words in the book descriptions."
+mathjax: "true"
+---
+
+# Capstone Project: Tell Me a Story...#
+
+Elyse Renouf   **|**   July 31, 2020   
+
+Tell Me A Story (TMAS) is a content-based young children's book recommender using NLP that is derived from a Kaggle dataset of Goodreads.com book reviews. It was created so parents could input one of their child's favourite books and TMAS can recommend other similar books to read based entirely on key words in the book descriptions. 
+
+**Please Note:** This is notebook 1 of 3 that were used to build the final product. This notebook includes all the steps I took when downloading and paring down the initial suite of eleven Goodreads.com data files from Kaggle; focused solely on children's books and resulting in a manageable starting point that is ready for cleaning and next steps. 
+
+<hr>
+
+### Loading & Merging Datasets ###
+
+Because the original dataset did not classify books by genre or age, I attempted to identify books that are specifically for children by first researching whether the unique ISBN numbers that are allocated to each book would have a genre identifier but they do not. 
+
+So instead, I decided to use page count as a rough identifier. I began by finding the average standard number of pages in children's books (according to authors and publishers), then pulled each of them out of the original Kaggle CSV files and merged them into a single dataset, specific to kids. 
+
+Age Ranges & Book Classifications that I used for the purpose of this analysis:
+<ul>
+<li> Board Books (ages 0-2): 10 or less pages
+<li> Picture Books (2-3): Pages in multiples of 8 ranging from 16-32 pages in length
+<li> Early Readers (4-6): 32-48 pages (32+ for the purposes of this project)
+</ul>
+
+And so, to simplify, I decided to split my data into only two categories using these age & book classifications as a guide (this step is done in notebook 2 of 3). 
+
+In initially viewing the datasets and typical books/page counts, I started by only pulling in books over 50 pages but, after exporting those files to Excel just to scroll through the titles and do a contents check, I realized that the majority of that dataset was adult books using that page count. 
+
+I tried again, using 40 pages as a threshold with similar results and upon closer review, I found that, in this dataset, anything over 38 pages is extremely difficult to capture and classify as a children's book by number of pages alone. 
+
+I then had to isolate publisher names as a next step, however to reduce the number of publishers required for review, I limited my inital recommender dataset to target children under 6 years of age (according to publisher page count recommendations) and at a max of 38 pages. 
+
+I understand I will be losing children's books that will be longer than 38 pages and will also capture some non-children's books in this initial sweep but this was the simplest way to start, in my opinion.  
+
+This notebook includes the steps I took in pulling the eleven .csv files from Kaggle, each with over 100,000 entries and then pulling out only (mostly) children's books using the above guidelines and assumptions. 
+
+I then merged those into a single file and exported my finished dataset to a .csv file to be read into my EDA & Cleaning notebook for the next steps in this project. 
+
+### Reference Pages:###
+<ul>
+<li> Datasets gathered from:https://www.kaggle.com/bahramjannesarr/goodreads-book-datasets-10m
+<li> Children's Book Page Range averages and ages estimated based on info from:https://www.jennybowman.com/what-genre-is-my-childrens-book/
+</ul>
+
+
+"`Python
+#import needed packages
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+"`
+
+#### Reading in all of the Datsets:####
+
+
+"`Python
+#Reading in the first 100k books dataset that comes with book descriptions
+books = pd.read_csv('data/book600k-700k.csv')
+
+# Print out the shape of the df
+print(f'There are {books.shape[0]} rows and {books.shape[1]} columns in the first books dataframe.')
+"`
+
+    There are 55156 rows and 19 columns in the first books dataframe.
+
+
+
+"`Python
+#getting information about each column in the df dataframe
+books.head(3)
+"`
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Id</th>
+      <th>Name</th>
+      <th>Authors</th>
+      <th>ISBN</th>
+      <th>Rating</th>
+      <th>PublishYear</th>
+      <th>PublishMonth</th>
+      <th>PublishDay</th>
+      <th>Publisher</th>
+      <th>RatingDist5</th>
+      <th>RatingDist4</th>
+      <th>RatingDist3</th>
+      <th>RatingDist2</th>
+      <th>RatingDist1</th>
+      <th>RatingDistTotal</th>
+      <th>CountsOfReview</th>
+      <th>Language</th>
+      <th>pagesNumber</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>600000</td>
+      <td>Lessons Learned (Great Chefs, #2)</td>
+      <td>Nora Roberts</td>
+      <td>037351025X</td>
+      <td>3.74</td>
+      <td>1993</td>
+      <td>15</td>
+      <td>2</td>
+      <td>Silhouette</td>
+      <td>5:947</td>
+      <td>4:1016</td>
+      <td>3:1061</td>
+      <td>2:287</td>
+      <td>1:63</td>
+      <td>total:3374</td>
+      <td>86</td>
+      <td>eng</td>
+      <td>250</td>
+      <td>LESSONS LEARNED...&lt;br /&gt;&lt;br /&gt;Coordinating the...</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>600001</td>
+      <td>Walking by Faith: Lessons Learned in the Dark</td>
+      <td>Jennifer Rothschild</td>
+      <td>0633099325</td>
+      <td>4.27</td>
+      <td>2003</td>
+      <td>1</td>
+      <td>1</td>
+      <td>Lifeway Church Resources</td>
+      <td>5:367</td>
+      <td>4:246</td>
+      <td>3:109</td>
+      <td>2:22</td>
+      <td>1:5</td>
+      <td>total:749</td>
+      <td>7</td>
+      <td>NaN</td>
+      <td>112</td>
+      <td>At the age of fifteen, Jennifer Rothschild con...</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>600003</td>
+      <td>Better Health in Africa: Experience and Lesson...</td>
+      <td>World Bank Group</td>
+      <td>0821328174</td>
+      <td>5.00</td>
+      <td>1994</td>
+      <td>1</td>
+      <td>1</td>
+      <td>World Bank Publications</td>
+      <td>5:1</td>
+      <td>4:0</td>
+      <td>3:0</td>
+      <td>2:0</td>
+      <td>1:0</td>
+      <td>total:1</td>
+      <td>1</td>
+      <td>NaN</td>
+      <td>240</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+
+"`Python
+# Isolating only books under 38 pages and saving into kidsbooks dataframe
+kidsbooks = books[books['pagesNumber']<=38]
+print(f'There are currently {kidsbooks.shape[0]} rows and {kidsbooks.shape[1]} columns in the kids books dataframe.')
+"`
+    There are currently 3399 rows and 19 columns in the kids books dataframe.
+
+"`Python
+# Reading in the next dataframe and doing the same
+books2 = pd.read_csv('data/book700k-800k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb2 = books2[books2['pagesNumber']<=38]
+kb2.shape
+"`
+    (3610, 20)
+
+"`Python
+# Reading in the next dataframe and doing the same
+books3 = pd.read_csv('data/book800k-900k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb3 = books3[books3['pagesNumber']<=38]
+kb3.shape
+"`
+    (3138, 20)
+
+"`Python
+# Reading in the next dataframe and doing the same
+books4 = pd.read_csv('data/book900k-1000k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb4 = books4[books4['pagesNumber']<=38]
+kb4.shape
+"`
+   (2496, 20)
+
+"`Python
+# Reading in the next dataframe and doing the same
+books5 = pd.read_csv('data/book1000k-1100k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb5 = books5[books5['pagesNumber']<=38]
+kb5.shape
+"`
+    (2589, 20)
+
+"`Python
+# Reading in the next dataframe and doing the same
+books6 = pd.read_csv('data/book1100k-1200k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb6 = books6[books6['pagesNumber']<=38]
+kb6.shape
+"`
+   (2945, 20)
+
+"`Python
+# Reading in the next dataframe and doing the same
+books7 = pd.read_csv('data/book1200k-1300k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb7 = books7[books7['pagesNumber']<=38]
+kb7.shape
+"`
+    (3252, 20)
+    
+"`Python
+# Reading in the next dataframe and doing the same
+books8 = pd.read_csv('data/book1300k-1400k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb8 = books8[books8['pagesNumber']<=38]
+kb8.shape
+"`
+    (2779, 20)
+
+"`Python
+# Reading in the next dataframe and doing the same
+books9 = pd.read_csv('data/book1400k-1500k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb9 = books9[books9['pagesNumber']<=38]
+kb9.shape
+"`
+    (2443, 20)
+
+"`Python
+# Reading in the next dataframe and doing the same
+books10 = pd.read_csv('data/book1500k-1600k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb10 = books10[books10['pagesNumber']<=38]
+kb10.shape
+"`
+    (2296, 20)
+
+"`Python
+# Reading in the next dataframe and doing the same
+books11 = pd.read_csv('data/book1600k-1700k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb11 = books11[books11['pagesNumber']<=38]
+kb11.shape
+"`
+    (2451, 20)
+
+"`Python
+# Reading in the next dataframe and doing the same
+books12 = pd.read_csv('data/book1700k-1800k.csv')
+
+# Pulling out only books under 38 pages to append to kidsbooks dataframe
+kb12 = books12[books12['pagesNumber']<=38]
+kb12.shape
+"`
+    (2295, 19)
+
+#### Making a single dataset to work from: ####
+
+"`Python
+#appending all dataframes into the kids df
+kidsbooks = kidsbooks.append([kb2, kb3, kb4, kb5, kb6, kb7, kb8, kb9, kb10, kb11, kb12])
+kidsbooks.shape
+"`
+    (33693, 20)
+
+#### An additional page number discovery: ####
+
+After looking over the contents of the dataframe of books under 38 pages, I found that there were also a number of audiobooks, teachers guides and study guides that were present. These were items that were often between 1-6 pages. To eliminate the bulk of these without accidentally eliminating board books/sensory books targeted at infants, I opted to remove any books under 4 pages and then could filter out any others by removing any publisher names with the term "audio" in the name. 
+
+"`Python
+#then remove books with page counts less than 4 (cheat/sheets, coles notes, guides, etc.)
+kidsbooks = kidsbooks[kidsbooks['pagesNumber']>=4]
+kidsbooks.shape
+"`
+    (28697, 20)
+
+"`Python
+#checking the datatypes
+kidsbooks.dtypes
+"`
+    Id                         int64
+    Name                      object
+    Authors                   object
+    ISBN                      object
+    Rating                   float64
+    PublishYear                int64
+    PublishMonth               int64
+    PublishDay                 int64
+    Publisher                 object
+    RatingDist5               object
+    RatingDist4               object
+    RatingDist3               object
+    RatingDist2               object
+    RatingDist1               object
+    RatingDistTotal           object
+    CountsOfReview             int64
+    Language                  object
+    pagesNumber                int64
+    Description               object
+    Count of text reviews    float64
+    dtype: object
+
+Looking at the available columns, and knowing that in order to make a book recommender work well, I will need to convert all my columns to numerical ones, I have opted to drop any column deemed unnecessary for my analysis and ultimately for my model. 
+
+The columns I will drop include:
+<ul>
+    <li> ID: these are the original ID number from the various originally scraped datasets and not relevant
+    <li> index: this was a previous index set prior to merging the originally scraped datasets
+    <li> RatingDist1-5 & RatingDistTotal: these columns have a ratio of ratings distribution from the Kaggle analysis that are not relevant to the purpose of my project
+    <li> Language: this column was almost entirely blank (90%) so deemed irrelevant so some Spanish, French, and other language books may be included in this dataframe. This dataset also includes many bilingual books, as parents often want to teach their kids multiple languages so I deemed any kids books, regardless of language, relevant but may need to screen these out at a later stage if it effects the performance of my recommender 
+    <li> Count of text reviews: this column was included in the original dataset, though the actual text reviews were not. Because I am doing a content-based recommender, based on description, I decided to remove the text reviews counts to remove any confusion.
+</ul>
+<br>       
+**Note:** Count of text reviews is different from CountsofReview which is a column to show how many numerical reviews each book has been given. I used this column to remove any books that had 0 reviews, with plans in future versions to potentially build out the recommender using user reviews. 
+
+Other steps I took in preparing this data for cleaning:
+<ul>
+    <li> Removing any rows where CountsOfReview = 0
+    <li> Replacing any columns where book description = blank with NaN (null value) and then removing all nulls in this column. The text recommender works entirely on this column so blanks are not ideal. If creating this recommender/ the data collection process from scratch, this would have been a mandatory field to have completed. 
+    <li> Manually identifying children's publishers and creating a df that only included books with those publisher names (all variations) in the publisher column
+    <li> Having this list of publisher names and all of the variations in those names found throughout the dataset allowed me to identify and create and apply a standard name for each publisher 
+    <li> Exporing the this qualified dataset to .csv format in order to start with just a single csv file in my second notebook, dedicated to cleaning & exploring the data
+
+
+"`Python
+#dropping Columns ID, RatingDist5-1, and Count of text reviews (not relevant to this project)
+# Delete multiple columns from the dataframe
+kidsbooks = kidsbooks.drop(["Id", "RatingDist5", "RatingDist4", "RatingDist3", "RatingDist2", "RatingDist1", "RatingDistTotal", "Language", "Count of text reviews"], axis=1)
+kidsbooks.head(3)
+"`
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Name</th>
+      <th>Authors</th>
+      <th>ISBN</th>
+      <th>Rating</th>
+      <th>PublishYear</th>
+      <th>PublishMonth</th>
+      <th>PublishDay</th>
+      <th>Publisher</th>
+      <th>CountsOfReview</th>
+      <th>pagesNumber</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>65</th>
+      <td>Cornelius T. Mouse and Sons</td>
+      <td>Christopher A. Lane</td>
+      <td>0896938441</td>
+      <td>4.0</td>
+      <td>1990</td>
+      <td>1</td>
+      <td>7</td>
+      <td>Victor</td>
+      <td>0</td>
+      <td>32</td>
+      <td>In this retelling of the New Testament parable...</td>
+    </tr>
+    <tr>
+      <th>98</th>
+      <td>David Blaine</td>
+      <td>Rochelle Scholar</td>
+      <td>0340900601</td>
+      <td>3.0</td>
+      <td>2006</td>
+      <td>1</td>
+      <td>6</td>
+      <td>Hodder Murray</td>
+      <td>0</td>
+      <td>27</td>
+      <td>Stimulating and accessible, the titles in the ...</td>
+    </tr>
+    <tr>
+      <th>124</th>
+      <td>Russell's Secret</td>
+      <td>Johanna Hurwitz</td>
+      <td>0688175740</td>
+      <td>2.7</td>
+      <td>2001</td>
+      <td>6</td>
+      <td>11</td>
+      <td>HarperCollins Publishers</td>
+      <td>8</td>
+      <td>32</td>
+      <td>Have you ever heard the words&lt;br /&gt;""You can s...</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+"`Python
+#removing books that have 0 reviews reviews
+kidsbooks = kidsbooks[kidsbooks['CountsOfReview']>=1]
+kidsbooks.shape
+"`
+    (15654, 11)
+
+"`Python
+#removing books where the description column is blank
+kidsbooks['Description'].replace('', np.nan, inplace=True)
+
+#dropping rows that have null values in Decription column
+kidsbooks.dropna(subset = ["Description"], inplace=True)
+kidsbooks.shape
+"`
+    (14412, 11)
+
+Originally, I started removing publishers that clearly didn't have kids books in the current data. I began removing any publishers with "audio" in the name to remove the many many audiobooks, religions, university, adult content, and museum publications but, a quick export to Excel to really take a closer look at my data (using kidsbooks.to_csv('kidsbooks.csv', header=True), made me realize that it would be easier to make a list of publishers to keep and then cleaning/narrowing down that list to make sure my recommender is as robust as possible. 
+
+"`Python
+#set up the filter of the publishers to keep
+filter = kidsbooks['Publisher'].isin([
+    "A & C Black (Childrens books)",
+    "Abbeville Kids",
+    "Abbeville Press",
+    "Abbey Press",
+    "ABRAMS",
+    "Abrams Books for Young Readers",
+    "Accord Publishing, a division of Andrews McMeel",
+    "Accord, a division of Andrews McMeel Publishing",
+    "Aladdin",
+    "Aladdin Books",
+    "Aladdin Paperbacks",
+    "Alaska Northwest Books",
+    "Albert Whitman  Company",
+    "Albert Whitman & Company",
+    "Alfaguara",
+    "Alfaguara Infantil",
+    "Alfred A. Knopf Books for Young Readers",
+    "Alison Green Books",
+    "All about Kids Publishing",
+    "Alyson Books",
+    "American Girl Publishing Inc",
+    "Andersen",
+    "Andersen Press",
+    "ANDERSEN PRESS LTD",
+    "Andersen Press Ltd",
+    "Andre Deutsch",
+    "Annick Press", 
+    "Arbordale Publishing",
+    "Arte Publico Press",
+    "Arthur A. Levine Books",
+    "Atheneum Books", 
+    "Atheneum Books for Young Readers",
+    "Atheneum/Richard Jackson Books",
+    "August House Publishers",
+    "Award Publications Limited",
+    "B.E.S.",
+    "B.E.S. Publishing",
+    "Baby Piggy Toes",
+    "Baker Books",
+    "Bank Street",
+    "Bantam Books for Young Readers",
+    "Barefoot Books",
+    "Barney Publishing",
+    "Barron's Educational Series",
+    "Bear Cub Books",
+    "Big Tent Entertainment",
+    "BJU Press",
+    "Blackbirch Press",
+    "Bloomsbury",
+    "Bloomsbury Children's Books",
+    "Bloomsbury USA Childrens", 
+    "Bloomsbury Publishing",
+    "Bloomsbury U.S.A Children's Books"
+    "Blue Apple",
+    "Blue Apple Books",
+    "Blue Sky Press",
+    "Bodley Head",
+    "Boxer Books",
+    "Boyds Mills Press",
+    "Bradbury Press",
+    "Bright and Early Books",
+    "Brighter Child",
+    "Brighter Child Interactive",
+    "Brimax Books",
+    "Buddy Books", 
+    "Candlewick",
+    "Candlewick Press",
+    "Candlewick Press (MA)",
+    "Candy Cane Press",
+    "Carolrhoda Books",
+    "Carolrhoda Books (R)",
+    "Cartwheel",
+    "Cartwheel Books",
+    "Cavendish Square Publishing",
+    "Cedco Publishing Company",
+    "Chariot Victor Publishing",
+    "Charlesbridge",
+    "Charlesbridge Publishing",
+    "Checkerboard Books",
+    "Checkerboard Press",
+    "Chicken House",
+    "Child's Play International",
+    "Child's World",
+    "Children's Book Press", 
+    "Children's Book Press (CA)",
+    "Children's Press",
+    "Children's Press (CT)",
+    "Children's Press (Dublin)",
+    "Children's Press(CT)",
+    "Chouette", 
+    "Chouette Editions",
+    "Chouette Publishing",
+    "Chronicle Books",
+    "Chronicle Books (CA)",
+    "Chrysalis Books",
+    "Cinco Puntos Press",
+    "Clarion Books",
+    "Classics Illustrated Junior",
+    "Clarkson N. Potter, Inc.",
+    "Clarkson Potter",
+    "Collins",
+    "Compass Point Books",
+    "Cooper Square Pub",
+    "Corgi Childrens", 
+    "Cricket Books", 
+    "Crown Books for Young Readers",
+    "Crown Publishers, Inc.",
+    "Crown Publishing Group (NY)",
+    "Da Capo Press",
+    "Dalmatian Press",
+    "David C Cook",
+    "David Fickling Books",
+    "Dawn Publications",
+    "Dawn Publications (CA)",
+    "Delacorte Books for Young Readers",
+    "Delacorte Press",
+    "Dial",
+    "Dial Books",
+    "Dial Books for Young Readers",
+    "Dial Books Young Readers",
+    "Disney Editions",
+    "Disney Press",
+    "Disney-Hyperion",
+    "DK Children", 
+    "DK Preschool",
+    "DK Publishing",
+    "DK Publishing (Dorling Kindersley",
+    "DK Publishing (Dorling Kindersley)",
+    "Dodd Mead",
+    "Dodd, Mead",
+    "Dorling Kindersley",
+    "DoubleDay",
+    "Doubleday",
+    "Doubleday Books",
+    "Doubleday Books for Young Readers",
+    "Doubleday Canada",
+    "Doubleday Childrens",
+    "Down East Books",
+    "Dragonfly Books",
+    "Dutton Books",
+    "Dutton Books for Young Readers",
+    "Dutton Children's Books",
+    "Dutton Juvenile",
+    "E.D.C. Publishing",
+    "Educational Development Corporation",
+    "Egmont",
+    "Egmont Books",
+    "Egmont Books (UK)",
+    "Egmont Books Ltd",
+    "Egmont Books, Limited",
+    "Egmont Childrens Books",
+    "Egmont UK",
+    "Element Books",
+    "Enslow Elementary",
+    "Farrar Straus Giroux",
+    "Farrar, Straus and Giroux",
+    "Farrar, Straus and Giroux (BYR)",
+    "Festival Books",
+    "Firefly Books",
+    "First Avenue Editions",
+    "First Avenue Editions (Tm)",
+    "Fitzhenry & Whiteside",
+    "Flashlight Press",
+    "Fleming H. Revell Company",
+    "Floris Books",
+    "Floris Books - Floris Books",
+    "Four Winds",
+    "Four Winds Press",
+    "Frances Lincoln",
+    "Frances Lincoln Children's Books",
+    "Frances Lincoln Ltd",
+    "Franklin Watts",
+    "Franklin Watts Ltd",
+    "Frederick Warne",
+    "Frederick Warne and Company",
+    "Free Spirit Publishing",
+    "Front Street, Incorporated",
+    "G.P. Putnam's Sons",
+    "G.P. Putnam's Sons",
+    "G.P. Putnam's Sons Books for Young Readers",
+    "Gagne International Press",
+    "Gallaudet University Press",
+    "Gallimard",
+    "Gallimard Jeunesse",
+    "Gareth Stevens Publishers",
+    "Garlic Press",
+    "Gibbs Smith",
+    "Gibbs Smith Publishers",
+    "Gingham Dog Press",
+    "Golden Books",
+    "Golden Books (Random House)",
+    "Golden Books Publishing Company",
+    "Golden Books / Western Publishing Company, Inc.",
+    "Golden Books Publishing Company, Inc.",
+    "Golden Press",
+    "Golden/Disney",
+    "Goldencraft",
+    "Good Books",
+    "Good Night Books",
+    "Gramercy",
+    "Greenwillow Books",
+    "Grosset & Dunlap",
+    "Groundwood Books",
+    "GT Publishing Corporation",
+    "GuidepostsBooks",
+    "Gullane Children's Books",
+    "Gullane Children's Books Ltd",
+    "Handprint Books",
+    "Happy Cat Books (UK)",
+    "Harbour Publishing",
+    "Harcourt",
+    "Harcourt Brace",
+    "Harcourt Brace & Company",
+    "Harcourt Brace and Company",
+    "Harcourt Brace Jovanich",
+    "Harcourt Brace Jovanovich",
+    "Harcourt Children's Books",
+    "Harper & Row",
+    "Harper Collins",
+    "Harpercoll",
+    "HarperCollins",
+    "HarperCollins (UK)",
+    "HarperCollins Children's Books",
+    "HarperCollins Publishers",
+    "HarperCollins UK",
+    "HarperCollinsChildren'sBooks",
+    "HarperCollinsChildren‚ÄôsBooks",
+    "HarperCollinsPublishers",
+    "HarperEntertainment",
+    "HarperFestival",
+    "HarperTrophy",
+    "Harrison House",
+    "Harry N. Abrams",
+    "Henry Holt & Company",
+    "Henry Holt and Co.",
+    "Henry Holt and Co. (BYR)",
+    "Henry Holt and Co. BYR Paperbacks",
+    "Henry Holt and Company",
+    "HMH Books for Young Readers",
+    "Hodder & Stoughton",
+    "Hodder Children's Books",
+    "Holiday House",
+    "Holt McDougal",
+    "Holt, Rinehart and Winston, Inc.",
+    "Hoopoe Books",
+    "Houghon Mifflin",
+    "Houghton Mifflin Company",
+    "Houghton Mifflin Harcourt",
+    "Houghton Mifflin Harcourt P",
+    "Hyperion",
+    "Hyperion Books",
+    "Hyperion Books for Children",
+    "Illumination Arts Publishing Company",
+    "innovative KIDS",
+    "Innovative Kids",
+    "Insight Kids",
+    "It Books", 
+    "Joy Street Books",
+    "Jump At The Sun",
+    "Just Us Books",
+    "Juventud",
+    "Kane Press",
+    "Kane/Miller",
+    "Kane/Miller Book Publishers",
+    "Kar-Ben Publishing",
+    "Kar-Ben Publishing (R)",
+    "Kar-Ben Publishing (Tm)",
+    "Katherine Tegen Books",
+    "Kids Can Press",
+    "Kingfisher",
+    "Knopf Books for Young Readers",
+    "KO Kids Books",
+    "Kregel Kidzone",
+    "L,B Kids",
+    "Ladybird Books",
+    "Ladybird Books Ltd",
+    "Lark Books",
+    "LB Kids",
+    "Learning Horizons",
+    "Lee & Low Books",
+    "Lemniscaat USA",
+    "Lincoln Children's Books",
+    "Little Simon",
+    "Little Simon (an imprint of Simon and Schuster, Inc.)",
+    "Little Tiger Press",
+    "Little, Brown Books for Young Readers",
+    "Little, Brown Young Readers",
+    "Lobster Press",
+    "London Town Press",
+    "Lothian Books",
+    "Lothrop, Lee & Shepard",
+    "Lothrop, Lee and Shepard",
+    "Lothrop, Lee and Shepard Books",
+    "MacAdam/Cage Publishing",
+    "Mackinac Island Press",
+    "Macmillan Children's Books",
+    "MacMillan Publishing Company",
+    "MacMillan UK",
+    "Magi Publications",
+    "Magic School Bus",
+    "Magination Press",
+    "Make Believe Ideas",
+    "Mammoth",
+    "Margaret K. McElderry",
+    "Margaret K. McElderry Books",
+    "MarshMedia",
+    "McArthur & Company",
+    "McClanahan Book Company",
+    "McGraw-Hill Companies",
+    "Meadowbrook",
+    "Meadowbrook Press",
+    "Megan Tingley Books",
+    "Melanie Kroupa Books",
+    "Mercury Books",
+    "Michael Di Capua Books",
+    "Milet Publishing",
+    "Milk & Cookies",
+    "Millbrook Press (Tm)",
+    "Minedition",
+    "Mitten Press",
+    "Modern Curriculum Press",
+    "Modern Publishing",
+    "Mondo Publishing",
+    "Monterey Bay Aquarium Press",
+    "Moo Press",
+    "Moon Mountain Publishing",
+    "Morrow Junior Books",
+    "Mulberry Books",
+    "Nantier Beall Minoustchine Publishing",
+    "National Center for Youth Issues",
+    "National Geographic Children's",
+    "National Geographic Children's Books",
+    "National Geographic Society",
+    "Nelson Publishing & Marketing",
+    "New York Review Children's Collection",
+    "Night Sky",
+    "North-South",
+    "North-South Books",
+    "Northland Publishing",
+    "NorthSouth",
+    "NorthSouth (NY)",
+    "NorthSouth Books",
+    "Northword Press",
+    "Orca Book Publishers",
+    "Orchard",
+    "Orchard (NY)",
+    "Orchard Books",
+    "Orchard Books (NY)",
+    "Orchard,",
+    "Owlkids Books",
+    "Oxford",
+    "Oxford University Press",
+    "Oxford University Press, USA",
+    "Pan Childrens",
+    "Pan Macmillan",
+    "Pantheon Books",
+    "Parenting Press",
+    "Parents Magazine Press",
+    "Peachtree Publishers",
+    "Peachtree Publishing Company",
+    "Penguin Young Readers",
+    "Penton Kids",
+    "Philomel",
+    "Philomel Books",
+    "Picture Book Studio Ltd",
+    "Picture Corgi",
+    "Picture Puffin Books",
+    "Picture Puffins",
+    "Picture Window Books",
+    "Piggy Toes Press",
+    "Pinata Books",
+    "Price Stern Sloan",
+    "Priddy Books",
+    "Priddy Books Us",
+    "Priddy Books US",
+    "Puffin",
+    "Puffin Bks",
+    "Puffin Books",
+    "Pumpkin House",
+    "Pumpkin House, Ltd.",
+    "Purple Bear Books",
+    "Putnam Juvenile",
+    "Putnam Publishing Group",
+    "R & S Books",
+    "Rainbow Morning Music",
+    "Raincoast Books",
+    "Raintree",
+    "Ramsey Solutions Inc",
+    "Rand McNally",
+    "Random House",
+    "Random House (NY)",
+    "Random House Books for Young Readers",
+    "Random House Children's Books",
+    "Random House Disney",
+    "Random House UK",
+    "Random House USA Inc",
+    "Random House Value Publishing",
+    "Raven Tree Press",
+    "Reader's Digest",
+    "Reader's Digest Association",
+    "Reader's Digest Children's Books",
+    "Reader's Digest Young Families",
+    "Red Fox",
+    "Red Fox Books",
+    "RED FOX BOOKS (RAND)",
+    "Red Fox Mini Treasure",
+    "Red Fox Picture Books",
+    "Red Wagon Books",
+    "RH/Disney",
+    "Rising Moon Books",
+    "Roaring Brook Press",
+    "Roberts Rinehart Publishers",
+    "Robin Corey Books",
+    "Running Press Kids",
+    "Salina Bookshelf",
+    "Salina Bookshelf, Inc.",
+    "Sasquatch Books",
+    "Scholastic",
+    "Scholastic Book Services",
+    "Scholastic Canada",
+    "Scholastic en Espanol",
+    "Scholastic en español",
+    "Scholastic Inc",
+    "Scholastic Inc.",
+    "Scholastic Paperbacks",
+    "Scholastic Press",
+    "Scholastic, Inc.",
+    "Schwartz & Wade",
+    "Schwartz & Wade Books",
+    "Scribble  Sons",
+    "Silver Dolphin",
+    "Silver Dolphin Books",
+    "Simon  Schuster Books for Young Readers",
+    "Simon  Schuster/Paula Wiseman Books",
+    "Simon & Schuster",
+    "Simon & Schuster Books for Young Readers",
+    "Simon & Schuster Children's",
+    "Simon & Schuster Children's Books",
+    "Simon & Schuster Children's Publishing",
+    "Simon & Schuster Ltd",
+    "Simon and Schuster",
+    "Simon Spotlight",
+    "Simon Spotlight / Nickelodeon",
+    "Simon Spotlight Entertainment",
+    "Simply Read Books",
+    "Sleeping Bear Press",
+    "Smart Kidz Publishing",
+    "Smithmark Publishers",
+    "Square Fish",
+    "St Martins Press",
+    "St. Martin's Griffin",
+    "St. Martin's Press",
+    "Sterling",
+    "Sterling Publishing (NY)",
+    "Sterling/Pinwheel",
+    "Stone Arch Books",
+    "Tamarind",
+    "The Chicken House",
+    "The Gryphon Press",
+    "Tiger Tales.",
+    "Tilbury House Publishers",
+    "Toys 'n Things Press",
+    "Tricycle Press",
+    "Troll Associates",
+    "Troll Communications",
+    "Trophy Picture Bks",
+    "Tuckamore Books",
+    "Tundra Books",
+    "Turtleback Books",
+    "Tuttle Publishing",
+    "Two Kids Productions",
+    "Two Lions",
+    "Two Little Hands Productions",
+    "Two Lives Publishing",
+    "Upstart Books",
+    "Usborne",
+    "Usborne / E.D.C. Publishing",
+    "Usborne Books",
+    "Usborne Publishing Ltd",
+    "Viking Books",
+    "Viking Books for Young Readers",
+    "Viking Children's Books",
+    "Viking Juvenile",
+    "Viking Picture Books",
+    "Viking/Puffin,",
+    "Volo",
+    "Walker",
+    "Walker & Company",
+    "Walker Books",
+    "Walker Books and Subsidiaries",
+    "Walker Books Ltd",
+    "Walker Books LTD",
+    "Walker Childrens",
+    "Walker Childrens Paperbacks",
+    "Walker,",
+    "Walrus Books",
+    "Warne",
+    "Western Publishing Company",
+    "Western Publishing Company, Inc.",
+    "Western Publishing Company, Inc./Golden Books",
+    "WordSong",
+    "WorthyKids",
+    "Zero To Ten",
+    " "  #where publisher is blank - (I will later convert to unknown)
+    ])
+
+#apply the filter
+kbs = kidsbooks[filter]
+kbs.shape
+"`
+    (10612, 11)
+
+"`Python
+kbs.to_csv('kidsbooks.csv', header=True)
+"`
+
+**Note:** Project continued in notebook number 2 of 3: Cleaning and EDA
